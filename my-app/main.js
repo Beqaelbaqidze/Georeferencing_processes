@@ -5,9 +5,9 @@ import VectorSource from 'ol/source/Vector';
 import GeoJSON from 'ol/format/GeoJSON';
 import OSM from 'ol/source/OSM';
 import { fromLonLat, toLonLat } from 'ol/proj';
-import { Point, LineString } from 'ol/geom';
+import { Point } from 'ol/geom';
 import Feature from 'ol/Feature';
-import { Style, Circle, Stroke } from 'ol/style';
+import { Style, Circle, Fill, Stroke } from 'ol/style';
 
 // Initialize map
 const map = new Map({
@@ -29,18 +29,23 @@ const layerVector = new VectorLayer({
   source: layerSource,
   style: new Style({
     stroke: new Stroke({ color: 'blue', width: 2 }),
+    fill: new Fill({ color: 'rgba(0, 0, 255, 0.1)' }),
   }),
 });
 map.addLayer(layerVector);
 
-const lineSource = new VectorSource();
-const lineLayer = new VectorLayer({
-  source: lineSource,
+const controlPointsSource = new VectorSource();
+const controlPointsLayer = new VectorLayer({
+  source: controlPointsSource,
   style: new Style({
-    stroke: new Stroke({ color: 'red', width: 2 }),
+    image: new Circle({
+      radius: 5,
+      fill: new Fill({ color: 'red' }),
+      stroke: new Stroke({ color: 'black', width: 1 }),
+    }),
   }),
 });
-map.addLayer(lineLayer);
+map.addLayer(controlPointsLayer);
 
 // DOM Elements
 const fileInput = document.getElementById('fileInput');
@@ -49,16 +54,15 @@ const georeferenceButton = document.getElementById('georeferenceButton');
 const layersList = document.getElementById('layersList');
 const customLabel = document.querySelector('.custom-file-input');
 
-// Variables
-let isDrawingLine = false;
-let currentLine = [];
-let matchedLines = [];
-
 // Update file input label
 fileInput.addEventListener('change', () => {
   const fileName = fileInput.files[0]?.name || 'Choose File';
   customLabel.textContent = fileName;
 });
+
+// Variables for georeferencing
+let controlPoints = [];
+let isSelectingLayerPoint = false;
 
 // Upload and render GeoJSON
 uploadButton.addEventListener('click', async () => {
@@ -72,7 +76,7 @@ uploadButton.addEventListener('click', async () => {
 
   // Indicate processing
   const processingMsg = document.createElement('li');
-  processingMsg.textContent = 'Processing...';
+  processingMsg.textContent = 'Processing... maybe take 2-5 minutes';
   processingMsg.style.color = 'blue';
   layersList.appendChild(processingMsg);
 
@@ -120,66 +124,57 @@ uploadButton.addEventListener('click', async () => {
   }
 });
 
-// Start drawing lines for georeferencing
+// Add control points
 map.on('click', (event) => {
-  if (!isDrawingLine) return;
+  if (!isSelectingLayerPoint) return;
 
   const coords = toLonLat(event.coordinate);
-  currentLine.push(coords);
+  const controlPoint = new Feature(new Point(event.coordinate));
+  controlPointsSource.addFeature(controlPoint);
 
-  // Draw the line dynamically
-  if (currentLine.length > 1) {
-    const lineFeature = new Feature(new LineString(currentLine));
-    lineSource.clear();
-    lineSource.addFeature(lineFeature);
+  controlPoints.push(coords);
+
+  if (controlPoints.length >= 6) {
+    isSelectingLayerPoint = false;
+    alert('Control points selected. Ready to georeference.');
   }
 });
 
-// Finish drawing the line
-map.on('dblclick', (event) => {
-  if (!isDrawingLine) return;
-
-  event.preventDefault();
-
-  if (currentLine.length < 2) {
-    alert('A line must have at least two points.');
-    return;
-  }
-
-  matchedLines.push([...currentLine]);
-  currentLine = [];
-  lineSource.clear();
-
-  if (matchedLines.length >= 2) {
-    isDrawingLine = false;
-    alert('Lines selected. Ready to georeference.');
-  }
-});
-
-// Trigger georeferencing
+// Georeferencing process
 georeferenceButton.addEventListener('click', () => {
-  if (matchedLines.length < 2) {
-    alert('Please draw at least two pairs of lines.');
-    isDrawingLine = true;
-    alert('Draw two pairs of corresponding lines: one for the map, one for the layer.');
+  if (controlPoints.length < 6) {
+    alert('Select at least 3 pairs of control points before applying georeferencing.');
+    isSelectingLayerPoint = true;
+    alert('Select 3 pairs of points: click on the map and then on the layer.');
   } else {
-    applyLineBasedGeoreferencing();
+    applyGeoreferencing();
   }
 });
 
 // Georeference function
-function applyLineBasedGeoreferencing() {
-  const mapLine = matchedLines[0];
-  const layerLine = matchedLines[1];
+function applyGeoreferencing() {
+  const mapPoints = controlPoints
+    .filter((_, index) => index % 2 === 0) // Even indices (map points)
+    .map((coords) => coords);
 
-  const transformation = computeLineTransformation(layerLine, mapLine);
+  const layerPoints = controlPoints
+    .filter((_, index) => index % 2 !== 0) // Odd indices (layer points)
+    .map((coords) => coords);
+
+  if (mapPoints.length !== layerPoints.length || mapPoints.length < 3) {
+    alert('Invalid control points. Please select at least 3 valid pairs.');
+    return;
+  }
+
+  const matrix = computeAffineTransform(layerPoints, mapPoints);
 
   // Apply transformation to layer features
-  layerSource.getFeatures().forEach((feature) => {
+  const features = layerSource.getFeatures();
+  features.forEach((feature) => {
     const geometry = feature.getGeometry();
     geometry.applyTransform((coords) => {
       const [x, y] = coords;
-      const transformedCoords = applyLineTransformation(transformation, x, y);
+      const transformedCoords = applyMatrixTransform(matrix, x, y);
       coords[0] = transformedCoords[0];
       coords[1] = transformedCoords[1];
     });
@@ -189,33 +184,32 @@ function applyLineBasedGeoreferencing() {
   alert('Georeferencing applied.');
 }
 
-// Compute transformation based on lines
-function computeLineTransformation(sourceLine, targetLine) {
-  const [x1, y1] = sourceLine[0];
-  const [x2, y2] = sourceLine[1];
-  const [x1Prime, y1Prime] = targetLine[0];
-  const [x2Prime, y2Prime] = targetLine[1];
+// Compute affine transformation
+function computeAffineTransform(sourcePoints, targetPoints) {
+  const n = sourcePoints.length;
+  const A = [];
+  const B = [];
 
-  const angleSource = Math.atan2(y2 - y1, x2 - x1);
-  const angleTarget = Math.atan2(y2Prime - y1Prime, x2Prime - x1Prime);
-  const rotation = angleTarget - angleSource;
+  for (let i = 0; i < n; i++) {
+    const [x, y] = sourcePoints[i];
+    const [xPrime, yPrime] = targetPoints[i];
+    A.push([x, y, 1, 0, 0, 0]);
+    A.push([0, 0, 0, x, y, 1]);
+    B.push(xPrime);
+    B.push(yPrime);
+  }
 
-  const scale =
-    Math.sqrt((x2Prime - x1Prime) ** 2 + (y2Prime - y1Prime) ** 2) /
-    Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-
-  const translation = [
-    x1Prime - scale * (x1 * Math.cos(rotation) - y1 * Math.sin(rotation)),
-    y1Prime - scale * (x1 * Math.sin(rotation) + y1 * Math.cos(rotation)),
-  ];
-
-  return { scale, rotation, translation };
+  const AT = numeric.transpose(A);
+  const ATA = numeric.dot(AT, A);
+  const ATB = numeric.dot(AT, B);
+  const affineParams = numeric.solve(ATA, ATB); // Returns [a, b, tx, c, d, ty]
+  return affineParams;
 }
 
-// Apply line-based transformation
-function applyLineTransformation({ scale, rotation, translation }, x, y) {
-  const [tx, ty] = translation;
-  const newX = scale * (x * Math.cos(rotation) - y * Math.sin(rotation)) + tx;
-  const newY = scale * (x * Math.sin(rotation) + y * Math.cos(rotation)) + ty;
+// Apply affine transformation matrix
+function applyMatrixTransform(matrix, x, y) {
+  const [a, b, tx, c, d, ty] = matrix;
+  const newX = a * x + b * y + tx;
+  const newY = c * x + d * y + ty;
   return [newX, newY];
 }
