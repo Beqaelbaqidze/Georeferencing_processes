@@ -1,0 +1,171 @@
+@import "node_modules/ol/ol.css";
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+#map {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+}
+:root {
+  /* Light mode colors */
+  --bg-color: #ffffff;
+  --text-color: #333333;
+  --sidebar-bg: #f4f4f4;
+  --sidebar-border: #dddddd;
+  --button-bg: #0078d7;
+  --button-text: #ffffff;
+  --hover-bg: #eaeaea;
+
+  /* Dark mode colors */
+  --bg-color-dark: #2c2c2c;
+  --text-color-dark: #f4f4f4;
+  --sidebar-bg-dark: #3a3a3a;
+  --sidebar-border-dark: #444444;
+  --button-bg-dark: #0078d7;
+  --button-text-dark: #ffffff;
+  --hover-bg-dark: #555555;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+#sidebar {
+  z-index: 2;
+  width: 300px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  padding: 10px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  transition: background 0.3s, border-color 0.3s;
+}
+
+#sidebar.dark {
+  background: var(--sidebar-bg-dark);
+  border-color: var(--sidebar-border-dark);
+}
+
+#map {
+  flex: 1;
+}
+
+#uploadForm {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#uploadForm button {
+  padding: 10px;
+  background: var(--button-bg);
+  color: var(--button-text);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.3s, color 0.3s;
+}
+
+#uploadForm button:hover {
+  background: var(--button-bg-dark);
+}
+
+#layersList {
+  margin-top: 20px;
+  list-style: none;
+  padding: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+#layersList li {
+  padding: 10px;
+  background: #fff;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 5px;
+  margin-bottom: 5px;
+  cursor: pointer;
+  transition: background 0.3s, border-color 0.3s;
+}
+
+#layersList li:hover {
+  background: var(--hover-bg);
+}
+
+#layersList li.dark {
+  background: var(--sidebar-bg-dark);
+  border-color: var(--sidebar-border-dark);
+}
+
+#layersList li:hover.dark {
+  background: var(--hover-bg-dark);
+}
+
+.dark {
+  background-color: var(--bg-color-dark);
+  color: var(--text-color-dark);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.theme-toggle {
+  cursor: pointer;
+  margin-bottom: 10px;
+  padding: 10px;
+  text-align: center;
+  background: var(--button-bg);
+  color: var(--button-text);
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+.theme-toggle:hover {
+  background: var(--button-bg-dark);
+}
+
+#fileInput {
+  display: none;
+}
+
+/* Style the custom label */
+.custom-file-input {
+  display: inline-block;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-family: Arial, sans-serif;
+  color: #fff;
+  background-color: #4CAF50;
+  border: 2px solid #4CAF50;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+/* Hover effect */
+.custom-file-input:hover {
+  background-color: #45a049;
+}
+
+/* Focus effect */
+.custom-file-input:focus {
+  outline: none;
+  box-shadow: 0 0 5px #4CAF50;
+}
+
+/* Add some margin */
+.file-upload-container {
+  margin: 20px;
+}

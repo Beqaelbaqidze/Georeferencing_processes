@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="https://openlayers.org/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Using OpenLayers with Vite</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  
+<body>
+  <div id="sidebar">
+    <h2>Upload PDF</h2>
+    <!-- File upload container -->
+    <div class="file-upload-container">
+      <!-- Styled file input -->
+      <input type="file" id="fileInput" name="file" accept=".pdf" required>
+      <label for="fileInput" class="custom-file-input">Choose File</label>
+    </div>
+    <button id="uploadButton" class="custom-file-input" style="background-color: #2196F3; border-color: #2196F3;">Upload</button>
+    <h3>Layers</h3>
+    <button id="georeferenceButton" class="custom-file-input" style="background-color: #4CAF50; border-color: #4CAF50;">
+      Georeference Layer
+    </button>
+    <ul id="layersList"></ul>
+  </div>
+  <div id="map"></div>
+    <script type="module" src="./main.js"></script>
+
+   
+  </body>
+</html>
